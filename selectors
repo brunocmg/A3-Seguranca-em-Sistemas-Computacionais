@@ -1,0 +1,7 @@
+def selectors():
+  cs = input("Seletor CS: ").upper()
+  ss = input("Seletor SS: ").upper()
+  ds = input("Seletor DS: ").upper()
+  es = input("Seletor ES: ").upper()
+
+  return cs, ss, ds, es
