@@ -48,7 +48,7 @@ class Interface(QWidget):
         self.memoria = bytearray(1048576)
         
         self.cor_borda_style = "background-color: #FFFFF0; border: 2px solid #FF0000; padding: 3px;"
-        self.barramento_ativo_style = "background-color: #FFFFF0; border: 2px solid #FF0000; padding: 10px; font-weight: bold; font-size: 14px;"
+        self.barramento_ativo_style = "background-color: #FFFFF0; border: 2px solid #FF0000; padding: 10px; font-weight: bold; font-size: 14px; color: black"
         self.barramento_inativo_style = "background-color: #EEEEEE; border: 1px dashed #999; padding: 10px; font-size: 14px; color: #777"
         
         self.demonstracao_estado = "Inicio"
@@ -102,6 +102,7 @@ class Interface(QWidget):
         self.log_memoria = QTextEdit()
         self.log_memoria.setReadOnly(True)
         self.log_memoria.setFontFamily("Courier")
+        self.log_memoria.setStyleSheet("color: black;")
                 
         pagina_inicial = self.menu_principal()
         pagina_moves = self.menu_moves()
@@ -463,18 +464,18 @@ class Interface(QWidget):
         layout_barramento.setSpacing(15)
         
         label_EF = QLabel("Barramento de Endereço (CPU ➡️ MEM)")
-        label_EF.setStyleSheet("font-weight: bold;")
+        label_EF.setStyleSheet("font-weight: bold; color: black;")
         self.tela_barramento_endereco.setStyleSheet(self.barramento_inativo_style)
         layout_barramento.addWidget(label_EF)
         layout_barramento.addWidget(self.tela_barramento_endereco)
         
         Seta = QLabel("⬇️ ⬆️")
         Seta.setAlignment(Qt.AlignCenter)
-        Seta.setStyleSheet("font-size: 20px; font-weight: bold;")
+        Seta.setStyleSheet("font-size: 20px; font-weight: bold; color: black;")
         layout_barramento.addWidget(Seta)
         
         label_dado = QLabel("Barramento de Dados (CPU ⬅️ MEM)")
-        label_dado.setStyleSheet("font-weight: bold")
+        label_dado.setStyleSheet("font-weight: bold; color: black;")
         self.tela_barramento_dados.setStyleSheet(self.barramento_inativo_style)
         layout_barramento.addWidget(label_dado)
         layout_barramento.addWidget(self.tela_barramento_dados)
@@ -484,6 +485,7 @@ class Interface(QWidget):
         parte_central.addStretch(1)
         
         btn_proximo = QPushButton("Próximo Passo ➡️")
+        btn_proximo.setStyleSheet("color: black")
         btn_proximo.clicked.connect(self.executar_passo_demonstracao)
         parte_central.addWidget(btn_proximo)
         
@@ -510,7 +512,7 @@ class Interface(QWidget):
         Box_Editor_Memoria.setLayout(layout_edicao)
         parte_memoria.addWidget(Box_Editor_Memoria)
         
-        Box_Memoria_Log = QGroupBox("Barramendo da Memoria")
+        Box_Memoria_Log = QGroupBox("Memoria")
         Box_Memoria_Log.setStyleSheet(Box_Style)
         layout_log = QVBoxLayout()
         layout_log.addWidget(self.log_memoria)
@@ -535,13 +537,13 @@ class Interface(QWidget):
             info = ""
             if valor <= 0xFF:
                 self.memoria[endereco_fisico] = valor
-                info = f"Salvar: 0x{valor:02X} (1 Byte\nem 0x{endereco_fisico:X})"
+                info = f"Salvar: {valor:02X} em {endereco_fisico:X})"
             elif valor <= 0xFFFF:
                 byte_baixo = valor & 0xFF
                 byte_alto = (valor >> 8) & 0xFF
                 self.memoria[endereco_fisico] = byte_baixo
                 self.memoria[endereco_fisico + 1] = byte_alto
-                info = f"Salvar: 0x{valor:04X} (Bytes: {byte_alto:02X} {byte_baixo:02x})\nem 0x{endereco_fisico:X} e 0x{endereco_fisico+1:X})"
+                info = f"Salvar: {valor:04X} em {endereco_fisico:X} )"
             else:
                 raise ValueError("Valor excede 16 bits (FFFF)")
             
@@ -604,7 +606,7 @@ class Interface(QWidget):
         except ValueError:
             pass
         except IndexError:
-            QMessageBox.warning(self, "Erro de endereço"), f"Erro: Endereço CS:IP (0x{EF_opcode:X}) está fora da memória."
+            QMessageBox.warning(self, "Erro de endereço"), f"Erro: Endereço CS:IP ({EF_opcode:X}) está fora da memória."
             self.menu_stack.setCurrentIndex(6)
             
     def executar_passo_demonstracao(self):
@@ -619,13 +621,13 @@ class Interface(QWidget):
                     self.demonstracao_passo_interno = 0
                 
             elif self.demonstracao_estado == "Busca_DST":
-                terminou = self.Passo_Busca("DST", self.demonstracao_dst_str, "Busca_SRC")
+                terminou = self.Passo_Busca(self.demonstracao_dst_str, self.demonstracao_dst_str, "Busca_SRC")
                 if terminou:
                     self.demonstracao_estado = "Busca_SRC"
                     self.demonstracao_passo_interno = 0
                     
             elif self.demonstracao_estado == "Busca_SRC":
-                terminou = self.Passo_Busca("SRC", self.demonstracao_src_str, "Decodificação")
+                terminou = self.Passo_Busca(self.demonstracao_src_str, self.demonstracao_src_str, "Decodificação")
                 if terminou:
                     self.demonstracao_estado = "Decodificacao"
                     self.demonstracao_passo_interno = 0
@@ -679,12 +681,22 @@ class Interface(QWidget):
     
     def acesso_memoria(self, tipo, endereço, dado, comentario=""):
         if tipo =="Leitura":
-            direcao = "⬅️"
+            direcao_dado = "⬅️"
         else:
-            direcao ="➡️"
-            
-        linha = f"{tipo}: {direcao} 0x{endereço} | Dado: 0x{dado} {comentario}"
-        self.log_memoria.append(linha)
+            direcao_dado ="➡️"
+        
+        dado_formatado = ""
+        
+        if comentario.startswith("(") and "Byte" not in comentario and "Valor" not in comentario:
+            dado_formatado = comentario.strip("()")
+        else:
+            dado_formatado = f"{dado} {comentario}"
+        
+        linha_endereco = f"Endereço ➡️ {endereço}"
+        linha_dado = f"Dado {direcao_dado} {dado_formatado}"
+        
+        self.log_memoria.append(linha_endereco)
+        self.log_memoria.append(linha_dado)
         self.log_memoria.setStyleSheet(self.cor_borda_style)
     
     def Passo_Busca(self, nome_passo, dado_esperado, proximo_estado):
@@ -713,10 +725,10 @@ class Interface(QWidget):
             dado = self.memoria[self.demonstracao_endereco_calculado]
             dado_str = f"{dado:02X}"
             self.tela_barramento_endereco.setStyleSheet(self.barramento_inativo_style)
-            self.tela_barramento_dados.setText(f"⬅️ Memória retorna: {dado_esperado} (Byte: 0x{dado_str})")
+            self.tela_barramento_dados.setText(f"⬅️ Memória retorna: {dado_esperado} ")
             self.tela_barramento_dados.setStyleSheet(self.barramento_ativo_style)
             
-            self.acesso_memoria("Leitura", f"{self.demonstracao_endereco_calculado:X}", dado_str, f"({nome_passo})")
+            self.acesso_memoria("Leitura", f"{self.demonstracao_endereco_calculado:X}", dado_esperado, f"({nome_passo})")
             self.demonstracao_passo_interno = 3
             
             return False
@@ -765,7 +777,7 @@ class Interface(QWidget):
             segmento = int(self.demonstracao_label_ds.text(), 16)
             offset = int(registrador_offset_label.text(), 16)
             self.demonstracao_endereco_calculado = (segmento * 16) + offset
-            calculo_str = f"Cálculo (SRC): (DS * 16) + {registrador_offset_nome}\n(0x{segmento:X} * 16) + 0x{offset:X} = 0x{self.demonstracao_endereco_calculado:X}"
+            calculo_str = f"Cálculo (SRC): (DS * 16) + {registrador_offset_nome}\n({segmento:X} * 16) + {offset:X} = 0x{self.demonstracao_endereco_calculado:X}"
             self.tela_barramento_endereco.setText(f"➡️ {calculo_str}")
             self.tela_barramento_endereco.setStyleSheet(self.barramento_ativo_style)
             self.tela_barramento_dados.setStyleSheet(self.barramento_inativo_style)
@@ -795,8 +807,6 @@ class Interface(QWidget):
             self.tela_barramento_endereco.setStyleSheet(self.barramento_inativo_style) 
             self.tela_barramento_dados.setText(f"⬅️ Memória retorna o Byte baixo: 0x{dado_str}")
             self.tela_barramento_dados.setStyleSheet(self.barramento_ativo_style)
-            
-            self.acesso_memoria("Leitura", f"{self.demonstracao_endereco_calculado:X}", dado_str, "(Byte baixo)") 
             self.demonstracao_passo_interno = 3
             return False
             
@@ -825,10 +835,7 @@ class Interface(QWidget):
             dado_str = f"{byte_alto:02X}"
             self.tela_barramento_endereco.setStyleSheet(self.barramento_inativo_style)
             self.tela_barramento_dados.setText(f"⬅️ Memória retorna o Byte alto: 0x{dado_str}")
-            self.tela_barramento_dados.setStyleSheet(self.barramento_ativo_style)
-            
-            self.acesso_memoria("Leitura", f"{self.demonstracao_endereco_calculado:X}", dado_str, "(Byte alto)")
-            
+            self.tela_barramento_dados.setStyleSheet(self.barramento_ativo_style)            
             self.demonstracao_dados_src = (byte_alto << 8) | self.demonstracao_tempo_byte
             self.demonstracao_passo_interno = 6
             return False
@@ -837,6 +844,12 @@ class Interface(QWidget):
             self.tela_barramento_endereco.setText(f"CPU (Interno): Montando valor 16 bits\nValor: 0x{self.demonstracao_dados_src:04X}")
             self.tela_barramento_endereco.setStyleSheet(self.barramento_ativo_style)
             self.tela_barramento_dados.setStyleSheet(self.barramento_inativo_style)
+            
+            endereço_alto = self.demonstracao_endereco_calculado
+            endereço_baixo = endereço_alto - 1
+            dado_completo_str = f"{self.demonstracao_dados_src:04X}"
+            
+            self.acesso_memoria("Leitura", f"{endereço_baixo:X}", dado_completo_str, "(Valor 16-bits)")            
             self.demonstracao_passo_interno = 0
             return True
         return False
