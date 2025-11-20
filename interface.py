@@ -672,10 +672,16 @@ class Interface(QWidget):
         terminou = False
         
         try:
+            operacao_visual = self.nome_visual(self.demonstracao_operacao)
+            dst_visual = self.nome_visual(self.demonstracao_dst_str)
+            src_visual = self.nome_visual(self.demonstracao_src_str)
+            
             if self.demonstracao_estado == "Busca_Opcode":
-                terminou = self.Passo_Busca(self.demonstracao_operacao, self.demonstracao_operacao, "Busca_DST")
+                terminou = self.Passo_Busca(operacao_visual, self.demonstracao_operacao, "Busca_DST")
                 if terminou:
-                    if self.demonstracao_operacao in self.lista_ADDR or self.demonstracao_operacao in ["JMP", "RET", "IRET", "IN", "OUT"]:
+                    if self.demonstracao_operacao in self.lista_ADDR:
+                        self.demonstracao_estado = "Execucao_Salto"
+                    elif self.demonstracao_operacao in ["RET", "IRET", "IN", "OUT"]:
                         self.demonstracao_estado = "Decodificacao"
                     elif self.demonstracao_operacao == "PUSH":
                         self.demonstracao_estado = "Busca_SRC"
@@ -684,7 +690,7 @@ class Interface(QWidget):
                     self.demonstracao_passo_interno = 0
                 
             elif self.demonstracao_estado == "Busca_DST":
-                terminou = self.Passo_Busca(self.demonstracao_dst_str, self.demonstracao_dst_str, "Busca_SRC")
+                terminou = self.Passo_Busca(dst_visual, self.demonstracao_dst_str, "Busca_SRC")
                 if terminou:
                     if self.demonstracao_operacao in ["POP", "INC", "DEC", "NEG", "NOT",]:
                         self.demonstracao_estado = "Decodificacao"
@@ -693,7 +699,7 @@ class Interface(QWidget):
                     self.demonstracao_passo_interno = 0
                     
             elif self.demonstracao_estado == "Busca_SRC":
-                terminou = self.Passo_Busca(self.demonstracao_src_str, self.demonstracao_src_str, "Decodificação")
+                terminou = self.Passo_Busca(src_visual, self.demonstracao_src_str, "Decodificação")
                 if terminou:
                     self.demonstracao_estado = "Decodificacao"
                     self.demonstracao_passo_interno = 0
@@ -848,22 +854,26 @@ class Interface(QWidget):
         
         elif self.demonstracao_passo_interno == 2:
             dado = self.memoria[self.demonstracao_endereco_calculado]
-            dado_str = f"{dado:02X}"
+            texto_visual = self.nome_visual(nome_passo)
             self.tela_barramento_endereco.setStyleSheet(self.barramento_inativo_style)
-            self.tela_barramento_dados.setText(f"← Memória retorna: {dado_esperado} ")
+            self.tela_barramento_dados.setText(f"← Memória retorna: {nome_passo} ")
             self.tela_barramento_dados.setStyleSheet(self.barramento_ativo_style)
             
-            self.acesso_memoria("Leitura", f"{self.demonstracao_endereco_calculado:X}", dado_esperado, f"({nome_passo})")
+            self.acesso_memoria("Leitura", f"{self.demonstracao_endereco_calculado:X}", nome_passo, f"({nome_passo})")
             self.demonstracao_passo_interno = 3
             
             return False
             
         elif self.demonstracao_passo_interno == 3:
+            if self.demonstracao_operacao in self.lista_ADDR:
+                offset_incremento = 2
+                    
             self.demonstracao_label_ip.setStyleSheet(self.cor_borda_style)
             offset_atual = int(self.demonstracao_label_ip.text(), 16)
-            offset_novo = offset_atual + 2
+            offset_novo = (offset_atual + offset_incremento) & 0xFFFF
             self.demonstracao_label_ip.setText(f"{offset_novo:04X}")
-            self.tela_barramento_endereco.setText("CPU (Interno): Incrementa IP")
+            self.registrador_ip_input.setText(f"{offset_novo:04X}")
+            self.tela_barramento_endereco.setText("CPU (Interno): Incrementa IP em {offset_incremento} bytes")
             self.tela_barramento_endereco.setStyleSheet(self.barramento_ativo_style)
             self.tela_barramento_dados.setStyleSheet(self.barramento_inativo_style)
             self.demonstracao_passo_interno = 0
@@ -874,12 +884,12 @@ class Interface(QWidget):
         if self.demonstracao_passo_interno == 0:   
             valor_imediato = getattr(self, "demonstracao_addr_str", "0000")
             
-            if self.demonstracao_operacao == "IN":
+            if self.demonstracao_operacao in self.lista_ADDR:
+                texto_instrucao = f"{self.demonstracao_operacao} {valor_imediato}"
+            elif self.demonstracao_operacao == "IN":
                 texto_instrucao = f"IN {self.demonstracao_dst_str}, port {valor_imediato}"
             elif self.demonstracao_operacao == "OUT":
                 texto_instrucao = f"OUT port {valor_imediato}, {self.demonstracao_dst_str}"
-            elif self.demonstracao_operacao in self.lista_ADDR and self.demonstracao_dst_str == "---":
-                texto_instrucao = f"{self.demonstracao_operacao} ADDR"
             elif self.demonstracao_operacao in ["PUSH", "MUL", "DIV"]:
                 texto_instrucao = f"{self.demonstracao_operacao} {self.demonstracao_src_str}"
             elif self.demonstracao_operacao in ["POP", "INC","DEC", "NEG", "NOT"]:
@@ -1212,6 +1222,8 @@ class Interface(QWidget):
         novo_ip = self.demonstracao_addr_str    
         flags = self.registrador_flag_input.text()
         
+        ip_atual_int = int(self.demonstracao_label_ip.text(), 16)
+        
         variavel_ZF = "ZF" in flags
         variavel_SF = "SF" in flags
         
@@ -1328,6 +1340,7 @@ class Interface(QWidget):
             self.demonstracao_label_ip.setStyleSheet(self.cor_borda_style)
             
             self.tela_barramento_endereco.setText(f"Salto realizado para {novo_ip} ({motivo})")
+            self.acesso_memoria("Leitura", f"{novo_ip}", "Opcode da próxima instrução", "(salto)")
             try:
                 self.demonstracao_ip_inicial = int(novo_ip, 16)
             except:
@@ -1511,6 +1524,24 @@ class Interface(QWidget):
         
         self.log_memoria.append(f"Hardware (OUT): Enviou {valor_enviado} para a porta {porta}")
         return True
+    
+    def nome_visual(self, texto):
+        t = texto.strip()
+        if t == "[SI]":
+            valor = self.registrador_si_input.text()
+            return f"[{valor}]"
+        
+        if t == "[DI]":
+            valor = self.registrador_di_input.text()
+            return f"[{valor}]"
+        
+        if t == "ADDR" and self.input_addr.text():
+            return self.input_addr.text().upper()
+        
+        if t == "PORT" and self.input_port.text():
+            return self.input_port.text().upper()
+        
+        return texto
     
     def executar_passo_execucao(self):   
         registrador_dst_label = self.pegar_demonstracao_label(self.demonstracao_dst_str)
