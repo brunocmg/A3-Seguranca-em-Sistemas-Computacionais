@@ -795,13 +795,22 @@ class Interface(QWidget):
             elif self.demonstracao_estado == "Fim":  
                 self.tela_barramento_endereco.setText("Instrução Concluída.")
                 self.tela_barramento_endereco.setStyleSheet(self.barramento_inativo_style)
-                self.tela_barramento_dados.setText("Pronto para a próxima instrução.")
+                self.tela_barramento_dados.setText("Ciclo finalizado.")
                 self.tela_barramento_dados.setStyleSheet(self.barramento_inativo_style)
                 
-                ip_str_inicial = f"{self.demonstracao_ip_inicial:04X}"
-                self.demonstracao_label_ip.setText(ip_str_inicial)
-                self.registrador_ip_input.setText(ip_str_inicial)
+                perguta = QMessageBox.question( 
+                                                self,
+                                                "Continuar Execução?",
+                                                "Instrução finalizada!\n Deseja configurar a proxima instrução mantendo o estado atual?",
+                                                QMessageBox.Yes | QMessageBox.No,
+                                                QMessageBox.Yes
+                                                )
                 
+                if perguta == QMessageBox.Yes:
+                    self.salvar_configuiracao()
+                    self.label_resultado.setText(f"Estado preservado. IP atual: {self.registrador_ip_input.text()}")
+                    self.menu_stack.setCurrentIndex(6)
+                    
                 self.demonstracao_estado = "Busca_Opcode"
                 self.demonstracao_passo_interno = 0
                 
@@ -865,18 +874,23 @@ class Interface(QWidget):
             return False
             
         elif self.demonstracao_passo_interno == 3:
-            if self.demonstracao_operacao in self.lista_ADDR:
-                offset_incremento = 2
-                    
+            offset_incremento = 2
+            
             self.demonstracao_label_ip.setStyleSheet(self.cor_borda_style)
-            offset_atual = int(self.demonstracao_label_ip.text(), 16)
+            try:
+                offset_atual = int(self.demonstracao_label_ip.text(), 16)
+            except ValueError:
+                offset_atual = 0
+                
             offset_novo = (offset_atual + offset_incremento) & 0xFFFF
+            
             self.demonstracao_label_ip.setText(f"{offset_novo:04X}")
             self.registrador_ip_input.setText(f"{offset_novo:04X}")
             self.tela_barramento_endereco.setText("CPU (Interno): Incrementa IP em {offset_incremento} bytes")
             self.tela_barramento_endereco.setStyleSheet(self.barramento_ativo_style)
-            self.tela_barramento_dados.setStyleSheet(self.barramento_inativo_style)
-            self.demonstracao_passo_interno = 0
+            self.tela_barramento_dados.setStyleSheet(self.barramento_inativo_style)        
+            
+            self.demonstracao_passo_interno = 0    
             return True
         return False
     
@@ -1852,6 +1866,22 @@ class Interface(QWidget):
                 self.dst_c.setCurrentIndex(0)
             if self.src_c.isEnabled() and self.src_c.currentText() == "---": 
                 self.src_c.setCurrentIndex(0)
+    
+    def salvar_configuiracao(self):
+        self.registrador_ax_input.setText(self.demonstracao_label_ax.text())
+        self.registrador_bx_input.setText(self.demonstracao_label_bx.text())
+        self.registrador_cx_input.setText(self.demonstracao_label_cx.text())
+        self.registrador_dx_input.setText(self.demonstracao_label_dx.text())
+        self.registrador_cs_input.setText(self.demonstracao_label_cs.text())
+        self.registrador_ss_input.setText(self.demonstracao_label_ss.text())
+        self.registrador_ds_input.setText(self.demonstracao_label_ds.text())
+        self.registrador_es_input.setText(self.demonstracao_label_es.text())
+        self.registrador_ip_input.setText(self.demonstracao_label_ip.text())
+        self.registrador_sp_input.setText(self.demonstracao_label_sp.text())
+        self.registrador_bp_input.setText(self.demonstracao_label_bp.text())
+        self.registrador_di_input.setText(self.demonstracao_label_di.text())
+        self.registrador_si_input.setText(self.demonstracao_label_si.text())
+        self.registrador_flag_input.setText(self.demonstracao_label_flag.text())
                     
     def pegar_demonstracao_label(self, registrador_nome):
         registrador_nome = registrador_nome.upper().strip("[]") 
