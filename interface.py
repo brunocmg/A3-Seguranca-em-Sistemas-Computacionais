@@ -1,3 +1,4 @@
+#pip install PyQt5
 import sys
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QWidget
